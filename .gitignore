@@ -1,0 +1,75 @@
+# =========================
+# ⚙️  Java / Maven / Gradle
+# =========================
+# Archivos de compilación
+target/
+out/
+bin/
+build/
+
+# Archivos de dependencias descargadas
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+
+# Configuración de IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.gradle/
+
+# Logs y temporales
+*.log
+*.tmp
+*.swp
+*.bak
+
+# Archivos generados por el sistema
+.DS_Store
+Thumbs.db
+
+# =========================
+# 🧠  Sistema del proyecto
+# =========================
+# Archivos procesados o generados
+/data/output/
+*.enc
+*.compressed
+*.decompressed
+
+# Archivos de pruebas locales
+test_files/
+*.test
+*.sample
+
+# =========================
+# 🌐  Web / Frontend
+# =========================
+# Dependencias de frontend (si llegas a usar npm)
+node_modules/
+dist/
+.cache/
+*.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =========================
+# 🔐  Seguridad
+# =========================
+# Archivos sensibles o claves
+*.key
+*.pem
+*.p12
+*.crt
+secret.txt
+passwords.txt
+config.properties
+application.properties
