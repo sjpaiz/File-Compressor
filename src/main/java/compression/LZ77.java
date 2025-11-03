@@ -1,23 +1,8 @@
-import java.util.*;
+package compression;
+import java.util.ArrayList;
+import java.util.List;
 
 public class LZ77 {
-    
-    static class Tupla {
-        int offset;
-        int longitud;
-        char siguiente;
-        
-        Tupla(int offset, int longitud, char siguiente) {
-            this.offset = offset;
-            this.longitud = longitud;
-            this.siguiente = siguiente;
-        }
-        
-        @Override
-        public String toString() {
-            return "(" + offset + "," + longitud + "," + siguiente + ")";
-        }
-    }
 
     public List<Tupla> comprimir(String texto, int tamVentana, int tamBuffer) {
         List<Tupla> comprimido = new ArrayList<>();
