@@ -55,17 +55,38 @@ public class Huffman {
         // Generar códigos
         generarCodigos(raiz, "");
         
+        // Guardar tabla de frecuencias para descompresion
+        StringBuilder footer = new StringBuilder();
+        for (Map.Entry<Character, Integer> entry: frecuencias.entrySet()){
+            footer.append((int) entry.getKey()).append(":").append(entry.getValue()).append(";");
+        }
+
         // Codificar texto
-        return codificarTexto(texto);
+        return codificarTexto(texto) + "//" + footer;
     }
 
     public String descomprimir(String textoCodificado) {
-        if (textoCodificado == null || textoCodificado.isEmpty() || raiz == null) return "";
+        String[] parts = textoCodificado.split("//");
+        if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) return "";
+
+        String content = parts[0];
+        String footer = parts[1];
+        Map<Character, Integer> frecuencias = new HashMap<>();
+        for(String par: footer.split(";")){
+            if(par.isEmpty()) continue;
+            String[] kv = par.split(":");
+            char c = (char) Integer.parseInt(kv[0]);
+            int freq = Integer.parseInt(kv[1]);
+            frecuencias.put(c, freq);
+        }
+        construirArbol(frecuencias);
+
+        if(raiz == null) return "";
         
         StringBuilder resultado = new StringBuilder();
         Nodo actual = raiz;
         
-        for (char bit : textoCodificado.toCharArray()) {
+        for (char bit : content.toCharArray()) {
             if (bit == '0') {
                 actual = actual.izquierda;
             } else {
