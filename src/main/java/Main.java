@@ -18,7 +18,7 @@ public class Main {
         FileManager.readBinaryFile("output.bin");
         String header = FileManager.getHeader();
         String bytesLeidos = FileManager.getBytes();
-        System.out.println(hf.descomprimir(bytesLeidos, header));
+        System.out.println(lz.descomprimir(lz.stringATuplas(hf.descomprimir(bytesLeidos, header))));
         List<String> comprimido = hf.comprimir(cadenaInicial);
         System.out.println(comprimido);
         String header = hf.getHeader();
@@ -47,17 +47,17 @@ public class Main {
             char[] buffer = new char[chunkSizeBytes];
             int charsRead;
             int contadorBloques = 0;
-
+            
             //Paso 2, leer en un bucle hasta que se acaben los caracteres
             while((charsRead = reader.read(buffer, 0, chunkSizeBytes)) != -1){
                 contadorBloques++;
                 String bloque = new String(buffer, 0, charsRead);
-                List<Tupla> tupla = lz.comprimir(bloque, 2048, 32);
+                List<Tupla> tupla = lz.comprimir(bloque,262272 , 4096);
                 System.out.println(tupla);
                 bloquesCompresion.add(hf.comprimir(lz.tuplasAString(tupla)));
                 header1 = hf.getHeader();
-                System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
-                System.out.printf("Bloque %d ledio: %d caracteres, Contenido total: %s", contadorBloques, charsRead, bloque);
+                //System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
+                //System.out.printf("Bloque %d ledio: %d caracteres, Contenido total: %s", contadorBloques, charsRead, bloque);
             }
             
             System.out.println(bloquesCompresion.size());

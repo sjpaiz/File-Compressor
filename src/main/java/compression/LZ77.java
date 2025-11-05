@@ -3,57 +3,64 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class LZ77 {
-
     public List<Tupla> comprimir(String texto, int tamVentana, int tamBuffer) {
         List<Tupla> comprimido = new ArrayList<>();
-        
+
         if (texto == null || texto.isEmpty()) {
             return comprimido;
         }
-        
+
         int pos = 0;
         int n = texto.length();
-        System.out.println(n);
-        
+        char[] chars = texto.toCharArray();
+
         while (pos < n) {
             int mejorOffset = 0;
             int mejorLongitud = 0;
-            char siguienteChar = texto.charAt(pos);
-            
+            char siguienteChar = chars[pos];
+
             int inicioVentana = Math.max(0, pos - tamVentana);
-            
-            // Buscar la coincidencia más larga en la ventana
             int maxLongitudBusqueda = Math.min(tamBuffer, n - pos);
-            
-            for (int longCoincidencia = 1; longCoincidencia <= maxLongitudBusqueda; longCoincidencia++) {
-                String patron = texto.substring(pos, pos + longCoincidencia);
-                
-                // Buscar en la ventana (desde inicioVentana hasta pos-1)
-                for (int i = inicioVentana; i < pos; i++) {
-                    int finBusqueda = i + longCoincidencia;
-                    if (finBusqueda <= pos && texto.substring(i, finBusqueda).equals(patron)) {
-                        if (longCoincidencia > mejorLongitud) {
-                            mejorLongitud = longCoincidencia;
-                            mejorOffset = pos - i;
-                        }
-                    }
+
+            // Buscar la coincidencia más larga en la ventana
+            for (int i = inicioVentana; i < pos; i++) {
+                int longitudCoinc = 0;
+
+                // Comparar carácter por carácter
+                while (longitudCoinc < maxLongitudBusqueda &&
+                    i + longitudCoinc < pos &&
+                    chars[i + longitudCoinc] == chars[pos + longitudCoinc]) {
+                    longitudCoinc++;
+                }
+
+                // Actualizar mejor coincidencia encontrada
+                if (longitudCoinc > mejorLongitud) {
+                    mejorLongitud = longitudCoinc;
+                    mejorOffset = pos - i;
+                }
+
+                // Si ya alcanzamos la longitud máxima, salir
+                if (mejorLongitud == maxLongitudBusqueda) {
+                    break;
                 }
             }
-            
+
             // Determinar el siguiente carácter
             if (pos + mejorLongitud < n) {
-                siguienteChar = texto.charAt(pos + mejorLongitud);
+                siguienteChar = chars[pos + mejorLongitud];
             } else {
-                siguienteChar = '\0'; // Fin de texto
+                siguienteChar = '\0'; // Fin del texto
             }
-            
+
             comprimido.add(new Tupla(mejorOffset, mejorLongitud, siguienteChar));
+
+            // Avanzar la posición
             pos += mejorLongitud + 1;
-            System.out.println("Un cliclo mas: " + pos);
         }
-        
+
         return comprimido;
     }
+
     
     public String descomprimir(List<Tupla> comprimido) {
         StringBuilder resultado = new StringBuilder();
