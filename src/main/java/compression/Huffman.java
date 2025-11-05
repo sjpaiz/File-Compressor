@@ -62,7 +62,6 @@ public class Huffman {
             header.append((int) entry.getKey()).append(":").append(entry.getValue()).append(";");
         }
 
-        imprimirArbol();
         // Codificar texto
         return codificarTexto(texto);
     }
@@ -79,7 +78,6 @@ public class Huffman {
             frecuencias.put(c, freq);
         }
         construirArbol(frecuencias);
-        imprimirArbol();
 
         if(raiz == null) return "";
         
@@ -97,7 +95,6 @@ public class Huffman {
                 resultado.append(actual.caracter);
                 actual = raiz;
             }
-            System.out.println(bit);
         }
         
         return resultado.toString();
@@ -140,15 +137,41 @@ public class Huffman {
         generarCodigos(nodo.derecha, codigo + "1");
     }
     
-    private List<String> codificarTexto(String texto) {
-        List<String> codificados = new ArrayList<>();
-        StringBuilder codificado = new StringBuilder();
-        for (char c : texto.toCharArray()) {
-            codificado.append(codigosHuffman.get(c));
-            if(codificado.length() == 8) codificados.add(codificado.toString()); codificado = new StringBuilder();
-        }
-        return codificados;
+// Versión CORREGIDA para List<String>
+private List<String> codificarTexto(String texto) {
+    List<String> codificados = new ArrayList<>();
+    StringBuilder bitStream = new StringBuilder();
+    
+    // 1. Generar la secuencia completa de bits
+    for (char c : texto.toCharArray()) {
+        bitStream.append(codigosHuffman.get(c));
     }
+    
+    int longitudTotal = bitStream.length();
+    int bitsDeRelleno = 0; // Usaremos la variable de clase 'this.bitsDeRelleno'
+
+    // 2. Manejar el relleno (Padding)
+    if (longitudTotal % 8 != 0) {
+        int bitsFaltantes = 8 - (longitudTotal % 8);
+        bitsDeRelleno = bitsFaltantes; // Actualiza la variable de clase
+
+        // Rellenar con '0's (o '1's)
+        for (int i = 0; i < bitsFaltantes; i++) {
+            bitStream.append('0');
+        }
+    } else {
+        bitsDeRelleno = 0;
+    }
+    
+    // 3. Dividir el flujo total (ya rellenado) en bloques de 8 bits
+    String streamRellenado = bitStream.toString();
+    for (int i = 0; i < streamRellenado.length(); i += 8) {
+        // Garantizamos que cada String tenga exactamente 8 caracteres
+        codificados.add(streamRellenado.substring(i, i + 8)); 
+    }
+    
+    return codificados;
+}
 
     public Map<Character, String> getCodigosHuffman() {
         return new HashMap<>(codigosHuffman);
