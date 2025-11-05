@@ -1,15 +1,14 @@
 package core;
-import java.io.FileOutputStream;
-import java.io.FileInputStream;
+import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.DataInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -72,9 +71,53 @@ public class FileManager {
                 e.printStackTrace();
             }
     }
+
+    public static String readPlainTextFile(String filePath, int bufferSize){
+        try {
+            // Primer paso instanciar FileInputStream
+            FileInputStream fis = new FileInputStream(filePath);
+
+            // Paso 2, Instanciar InputStreamReader usando la instancia de FileInputStream (Sirve para los caracteres con tildes y demas caracteres especiales del espa;ol)
+            InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
+
+            // Paso 3, Usar un BufferedReader para lectura eficiente
+            BufferedReader reader = new BufferedReader(isr);
+
+            char[] buffer = new char[bufferSize];
+
+            // La parte importante usamos el readeer para leer la cantidad de caracteres aceptados por el bufferSize, estos se guardan en el arreglo buffer
+            int charsRead = reader.read(buffer, 0, bufferSize);
+
+            if(charsRead == -1){
+                //Esta condicional se cumple solo si ya se leyo el archivo completo
+                reader.close();
+                return null;
+            }
+
+            return new String(buffer, 0, charsRead);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static BufferedReader crearLectorUTF8(String filePath){
+        try {
+            FileInputStream fis = new FileInputStream(filePath);
+            InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
+
+            return new BufferedReader(isr);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }  
+    }
+
     public static String getHeader(){
         return headerLeido;
     }
+
     public static String getBytes(){
         return bytesLeidos;
     }

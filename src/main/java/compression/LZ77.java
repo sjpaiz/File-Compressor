@@ -13,6 +13,7 @@ public class LZ77 {
         
         int pos = 0;
         int n = texto.length();
+        System.out.println(n);
         
         while (pos < n) {
             int mejorOffset = 0;
@@ -48,6 +49,7 @@ public class LZ77 {
             
             comprimido.add(new Tupla(mejorOffset, mejorLongitud, siguienteChar));
             pos += mejorLongitud + 1;
+            System.out.println("Un cliclo mas: " + pos);
         }
         
         return comprimido;
