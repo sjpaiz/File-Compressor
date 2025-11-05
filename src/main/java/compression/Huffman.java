@@ -1,5 +1,7 @@
 package compression;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 
@@ -35,7 +37,7 @@ public class Huffman {
             return izquierda == null && derecha == null;
         }
     }
-    
+    private StringBuilder header = new StringBuilder();
     private Map<Character, String> codigosHuffman;
     private Nodo raiz;
     
@@ -43,8 +45,8 @@ public class Huffman {
         codigosHuffman = new HashMap<>();
     }
     
-    public String comprimir(String texto) {
-        if (texto == null || texto.isEmpty()) return "";
+    public List<String> comprimir(String texto) {
+        if (texto == null || texto.isEmpty()) return null;
         
         // Calcular frecuencias
         Map<Character, Integer> frecuencias = calcularFrecuencias(texto);
@@ -56,23 +58,20 @@ public class Huffman {
         generarCodigos(raiz, "");
         
         // Guardar tabla de frecuencias para descompresion
-        StringBuilder footer = new StringBuilder();
         for (Map.Entry<Character, Integer> entry: frecuencias.entrySet()){
-            footer.append((int) entry.getKey()).append(":").append(entry.getValue()).append(";");
+            header.append((int) entry.getKey()).append(":").append(entry.getValue()).append(";");
         }
 
+        imprimirArbol();
         // Codificar texto
-        return codificarTexto(texto) + "//" + footer;
+        return codificarTexto(texto);
     }
 
-    public String descomprimir(String textoCodificado) {
-        String[] parts = textoCodificado.split("//");
-        if (parts.length != 2 || parts[0].isEmpty() || parts[1].isEmpty()) return "";
+    public String descomprimir(String textoCodificado, String headerLeido) {
+        if (textoCodificado.isEmpty() || headerLeido.isEmpty()) return "";
 
-        String content = parts[0];
-        String footer = parts[1];
         Map<Character, Integer> frecuencias = new HashMap<>();
-        for(String par: footer.split(";")){
+        for(String par: headerLeido.split(";")){
             if(par.isEmpty()) continue;
             String[] kv = par.split(":");
             char c = (char) Integer.parseInt(kv[0]);
@@ -80,13 +79,14 @@ public class Huffman {
             frecuencias.put(c, freq);
         }
         construirArbol(frecuencias);
+        imprimirArbol();
 
         if(raiz == null) return "";
         
         StringBuilder resultado = new StringBuilder();
         Nodo actual = raiz;
         
-        for (char bit : content.toCharArray()) {
+        for (char bit : textoCodificado.toCharArray()) {
             if (bit == '0') {
                 actual = actual.izquierda;
             } else {
@@ -97,6 +97,7 @@ public class Huffman {
                 resultado.append(actual.caracter);
                 actual = raiz;
             }
+            System.out.println(bit);
         }
         
         return resultado.toString();
@@ -139,12 +140,14 @@ public class Huffman {
         generarCodigos(nodo.derecha, codigo + "1");
     }
     
-    private String codificarTexto(String texto) {
+    private List<String> codificarTexto(String texto) {
+        List<String> codificados = new ArrayList<>();
         StringBuilder codificado = new StringBuilder();
         for (char c : texto.toCharArray()) {
             codificado.append(codigosHuffman.get(c));
+            if(codificado.length() == 8) codificados.add(codificado.toString()); codificado = new StringBuilder();
         }
-        return codificado.toString();
+        return codificados;
     }
 
     public Map<Character, String> getCodigosHuffman() {
@@ -177,5 +180,9 @@ public class Huffman {
         if (nodo.derecha != null) {
             imprimirArbolRec(nodo.derecha, nuevoPrefijo, true);
         }
+    }
+
+    public String getHeader(){
+        return header.toString();
     }
 }

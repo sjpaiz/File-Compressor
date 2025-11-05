@@ -1,4 +1,6 @@
 //Archivo raiz del proyecto
+import java.util.List;
+
 import compression.Huffman;
 import compression.LZ77;
 import core.FileManager;
@@ -9,13 +11,24 @@ public class Main {
     public static void main(String[] args) {
         Huffman hf = new Huffman();
         LZ77 lz = new LZ77();
-        //String comprimido = hf.comprimir(lz.tuplasAString(lz.comprimir(cadenaInicial, 4096, 64)));
-        //FileManager.writeBinaryFile(comprimido, "output.bin");
-        String encode = FileManager.readBinaryFile("output.bin");
+        List<String> comprimido = hf.comprimir(cadenaInicial);
+        System.out.println(comprimido);
+        String header = hf.getHeader();
+        /* 
+        FileManager.writeBinaryFile(comprimido, header, "output.bin"); */
+        FileManager reader = new FileManager();
+        reader.readBinaryFile("output.bin");
+        String newHeader = reader.getHeader();
+        System.out.println(newHeader);
+        String newBytes = reader.getBytes();
+        System.out.println(newBytes);
+        Huffman instancia2 = new Huffman();
+        System.out.println(instancia2.descomprimir(newBytes, header));       
+        //String encode = FileManager.readBinaryFile("output.bin");
         //System.out.println(encode);
-        String lol = hf.descomprimir(encode);
-        System.out.println(lz.descomprimir(lz.stringATuplas(lol)));
-        Spark.staticFileLocation("../resources/web/");
-        Spark.get("/hello", (req, res) -> "Hello world xd");
+        //String lol = hf.descomprimir(encode);
+        //System.out.println(lz.descomprimir(lz.stringATuplas(lol)));
+        //Spark.staticFileLocation("../resources/web/");
+        //Spark.get("/hello", (req, res) -> "Hello world xd");
     }
 }
