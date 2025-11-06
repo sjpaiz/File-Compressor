@@ -1,83 +1,152 @@
 package encryption;
+
 import java.io.*;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.util.Scanner;
+import java.util.Base64;
+import java.util.Random;
 
 public class RSA {
 
+    private static final String PUBLIC_KEY_FILE = "rsa_public.key";
+    private static final String PRIVATE_KEY_FILE = "rsa_private.key";
+    private static final int DEFAULT_KEY_SIZE = 1024; // segura y rápida
+
+    // ==============================
+    // 🔑 Estructuras internas
+    // ==============================
     public static class Clave implements Serializable {
-        public BigInteger clave;
+        public BigInteger valor;
         public BigInteger n;
 
-        public Clave(BigInteger clave, BigInteger n) {
-            this.clave = clave;
+        public Clave(BigInteger valor, BigInteger n) {
+            this.valor = valor;
             this.n = n;
         }
     }
 
-    public static class ParClaves implements Serializable {
-        public Clave publica;
-        public Clave privada;
+    private static Clave publicKey;
+    private static Clave privateKey;
 
-        public ParClaves(Clave publica, Clave privada) {
-            this.publica = publica;
-            this.privada = privada;
+    // ==============================
+    // 🚀 Inicialización automática
+    // ==============================
+    static {
+        try {
+            cargarOGenerarClaves();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error al inicializar RSA");
         }
     }
 
-    public static ParClaves generarClaves(int bitLength) {
-        BigInteger p = BigInteger.probablePrime(bitLength, new java.util.Random());
-        BigInteger q = BigInteger.probablePrime(bitLength, new java.util.Random());
+    private static void cargarOGenerarClaves() throws Exception {
+        File pubFile = new File(PUBLIC_KEY_FILE);
+        File privFile = new File(PRIVATE_KEY_FILE);
+
+        if (pubFile.exists() && privFile.exists()) {
+            publicKey = (Clave) cargarClave(PUBLIC_KEY_FILE);
+            privateKey = (Clave) cargarClave(PRIVATE_KEY_FILE);
+        } else {
+            generarYGuardarClaves(DEFAULT_KEY_SIZE);
+        }
+    }
+
+    private static void generarYGuardarClaves(int bits) throws IOException {
+        BigInteger p = BigInteger.probablePrime(bits / 2, new Random());
+        BigInteger q = BigInteger.probablePrime(bits / 2, new Random());
         BigInteger n = p.multiply(q);
         BigInteger phi = p.subtract(BigInteger.ONE).multiply(q.subtract(BigInteger.ONE));
-
         BigInteger e = BigInteger.valueOf(65537);
-        while (!phi.gcd(e).equals(BigInteger.ONE)) {
-            e = e.add(BigInteger.TWO);
-        }
-
         BigInteger d = e.modInverse(phi);
-        return new ParClaves(new Clave(e, n), new Clave(d, n));
+
+        publicKey = new Clave(e, n);
+        privateKey = new Clave(d, n);
+
+        guardarClave(publicKey, PUBLIC_KEY_FILE);
+        guardarClave(privateKey, PRIVATE_KEY_FILE);
     }
 
-    public static void guardarClave(Clave clave, String nombreArchivo) throws IOException {
-        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(nombreArchivo))) {
+    private static void guardarClave(Clave clave, String ruta) throws IOException {
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(ruta))) {
             out.writeObject(clave);
         }
     }
 
-    public static Clave cargarClave(String nombreArchivo) throws IOException, ClassNotFoundException {
-        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(nombreArchivo))) {
-            return (Clave) in.readObject();
+    private static Object cargarClave(String ruta) throws IOException, ClassNotFoundException {
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(ruta))) {
+            return in.readObject();
         }
     }
 
-    public static void encriptarArchivo(String entrada, String salida, Clave publica) throws IOException {
-        try (BufferedInputStream in = new BufferedInputStream(new FileInputStream(entrada));
-             DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(salida)))) {
+    // ======================================================
+    // 🔒 ENCRIPTAR Y DESENCRIPTAR STRINGS
+    // ======================================================
 
-            int tamBloque = (publica.n.bitLength() - 1) / 8; // tamaño máximo de bloque
+    public static String encrypt(String texto) {
+        return encryptWithKey(texto, publicKey);
+    }
+
+    public static String decrypt(String textoEncriptado) {
+        return decryptWithKey(textoEncriptado, privateKey);
+    }
+
+    private static String encryptWithKey(String texto, Clave key) {
+        byte[] datos = texto.getBytes(StandardCharsets.UTF_8);
+        BigInteger mensaje = new BigInteger(1, datos);
+        BigInteger cifrado = mensaje.modPow(key.valor, key.n);
+        return Base64.getEncoder().encodeToString(cifrado.toByteArray());
+    }
+
+    private static String decryptWithKey(String base64, Clave key) {
+        byte[] cifradoBytes = Base64.getDecoder().decode(base64);
+        BigInteger cifrado = new BigInteger(1, cifradoBytes);
+        BigInteger descifrado = cifrado.modPow(key.valor, key.n);
+        return new String(descifrado.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    // ======================================================
+    // 📂 ENCRIPTAR ARCHIVOS Y DEVOLVER COMO STRING
+    // ======================================================
+
+    /**
+     * Encripta un archivo completo y devuelve el resultado como un String Base64 listo
+     * para escribir con FileManager.writeBinaryFile().
+     */
+    public static String encryptFileToString(String rutaArchivo) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        try (BufferedInputStream in = new BufferedInputStream(new FileInputStream(rutaArchivo));
+             DataOutputStream out = new DataOutputStream(new BufferedOutputStream(baos))) {
+
+            int tamBloque = (publicKey.n.bitLength() - 1) / 8;
             byte[] buffer = new byte[tamBloque];
             int bytesLeidos;
 
             while ((bytesLeidos = in.read(buffer)) != -1) {
-                byte[] sub = new byte[bytesLeidos];
-                System.arraycopy(buffer, 0, sub, 0, bytesLeidos);
+                byte[] bloque = new byte[bytesLeidos];
+                System.arraycopy(buffer, 0, bloque, 0, bytesLeidos);
 
-                BigInteger bloque = new BigInteger(1, sub);
-                BigInteger cifrado = bloque.modPow(publica.clave, publica.n);
-                byte[] bytesCifrados = cifrado.toByteArray();
+                BigInteger m = new BigInteger(1, bloque);
+                BigInteger c = m.modPow(publicKey.valor, publicKey.n);
+                byte[] bytesCifrados = c.toByteArray();
 
-                // Guardar longitud y datos del bloque
                 out.writeInt(bytesCifrados.length);
                 out.write(bytesCifrados);
             }
         }
+
+        // Devuelve todo el archivo cifrado en Base64 (seguro para texto)
+        return Base64.getEncoder().encodeToString(baos.toByteArray());
     }
 
-    public static void desencriptarArchivo(String entrada, String salida, Clave privada) throws IOException {
-        try (DataInputStream in = new DataInputStream(new BufferedInputStream(new FileInputStream(entrada)));
+    /**
+     * Desencripta el contenido previamente encriptado por encryptFileToString().
+     */
+    public static void decryptStringToFile(String contenidoEncriptado, String salida) throws IOException {
+        byte[] datosCifrados = Base64.getDecoder().decode(contenidoEncriptado);
+
+        try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(datosCifrados));
              BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(salida))) {
 
             while (true) {
@@ -87,10 +156,9 @@ public class RSA {
                     in.readFully(bloqueCifrado);
 
                     BigInteger c = new BigInteger(1, bloqueCifrado);
-                    BigInteger descifrado = c.modPow(privada.clave, privada.n);
+                    BigInteger descifrado = c.modPow(privateKey.valor, privateKey.n);
                     byte[] bytesDescifrados = descifrado.toByteArray();
 
-                    // Eliminar byte 0 inicial si aparece
                     if (bytesDescifrados.length > 1 && bytesDescifrados[0] == 0) {
                         byte[] tmp = new byte[bytesDescifrados.length - 1];
                         System.arraycopy(bytesDescifrados, 1, tmp, 0, tmp.length);
@@ -99,57 +167,10 @@ public class RSA {
 
                     out.write(bytesDescifrados);
                 } catch (EOFException e) {
-                    break; // fin del archivo
+                    break;
                 }
             }
         }
     }
 
-    public static void main(String[] args) {
-        try {
-            Scanner sc = new Scanner(System.in);
-
-            // Cargar o generar claves 
-            Clave clavePublica, clavePrivada;
-            File pubFile = new File("clave.pub");
-            File privFile = new File("clave.priv");
-
-            if (pubFile.exists() && privFile.exists()) {
-                clavePublica = cargarClave("clave.pub");
-                clavePrivada = cargarClave("clave.priv");
-                System.out.println("Claves cargadas desde archivos existentes.");
-            } else {
-                ParClaves claves = generarClaves(512); // usa 512 bits (mínimo)
-                clavePublica = claves.publica;
-                clavePrivada = claves.privada;
-                guardarClave(clavePublica, "clave.pub");
-                guardarClave(clavePrivada, "clave.priv");
-                System.out.println("Claves generadas y guardadas");
-            }
-
-            System.out.println(" 1 = Encriptar, 2 = Desencriptar):");
-            int opcion = Integer.parseInt(sc.nextLine());
-
-            System.out.println("Ingrese nombre del archivo:");
-            String archivo = sc.nextLine();
-
-            if (opcion == 1) {
-                String salida = archivo + ".enc";
-                encriptarArchivo(archivo, salida, clavePublica);
-                System.out.println("Archivo encriptado: " + salida);
-
-            } else if (opcion == 2) {
-                String salida = archivo.replace(".enc", ".desc");
-                desencriptarArchivo(archivo, salida, clavePrivada);
-                System.out.println("Archivo desencriptado: " + salida);
-
-            } else {
-                System.out.println("Opción inválida.");
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 }
-

@@ -1,68 +1,119 @@
-//Archivo raiz del proyecto
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
-import compression.Huffman;
-import compression.LZ77;
+import compression.HuffmanCompressor;
+import compression.LZ77Compressor;
 import compression.Tupla;
+import encryption.RSA;
 import core.FileManager;
 
 public class Main {
-    static final String cadenaInicial = "Data compression is the process of reducing the size of data to save storage space or transmission time. Huffman coding is one of the most popular methods for lossless compression. It assigns shorter binary codes to characters that appear more frequently and longer codes to those that appear less frequently. This technique is widely used in file compression formats such as ZIP, GZIP, and many image or text compression systems. Understanding Huffman coding helps in learning how information theory and efficient data representation work together to optimize digital communication and storage.";
+
     public static void main(String[] args) {
-        Huffman hf = new Huffman();
-        LZ77 lz = new LZ77();
-        /* 
-        FileManager.readBinaryFile("output.bin");
-        String header = FileManager.getHeader();
-        String bytesLeidos = FileManager.getBytes();
-        System.out.println(lz.descomprimir(lz.stringATuplas(hf.descomprimir(bytesLeidos, header))));
-        List<String> comprimido = hf.comprimir(cadenaInicial);
-        System.out.println(comprimido);
-        String header = hf.getHeader();
-        FileManager.writeBinaryFile(comprimido, header, "output.bin"); 
-        FileManager reader = new FileManager();
-        reader.readBinaryFile("output.bin");
-        String newHeader = reader.getHeader();
-        String newBytes = reader.getBytes();
-        Huffman instancia2 = new Huffman();
-        System.out.println(instancia2.descomprimir(newBytes, newHeader));       
-        //String encode = FileManager.readBinaryFile("output.bin");
-        //System.out.println(encode);
-        //String lol = hf.descomprimir(encode);
-        //System.out.println(lz.descomprimir(lz.stringATuplas(lol)));
-        //Spark.staticFileLocation("../resources/web/");
-        //Spark.get("/hello", (req, res) -> "Hello world xd");
-        */
-        String testFilePath = "test3.txt";
-        int chunkSizeBytes = 5120 * 5120;
+        Scanner sc = new Scanner(System.in);
+        HuffmanCompressor hf = new HuffmanCompressor();
+        LZ77Compressor lz = new LZ77Compressor();
+
+        System.out.println("============== MENÚ DE COMPRESIÓN ==============");
+        System.out.println("1. Comprimir archivo");
+        System.out.println("2. Descomprimir archivo");
+        System.out.print("Seleccione una opción: ");
+        int opcion = sc.nextInt();
+        sc.nextLine(); // limpiar buffer
+
+        switch (opcion) {
+            case 1 :
+                System.out.print("Ingrese el nombre del archivo a comprimir (ej: test3.txt): ");
+                String archivoEntrada = sc.nextLine();
+                comprimirArchivo(archivoEntrada, lz, hf);
+                break;
+            case 2 :
+                System.out.print("Ingrese el nombre del archivo a descomprimir (ej: output.bin): ");
+                String archivoComprimido = sc.nextLine();
+                descomprimirArchivo(archivoComprimido, lz, hf);
+                break;
+            default : System.out.println("Opción no válida.");
+        }
+
+        sc.close();
+    }
+
+    // ============================================================
+    // MÉTODO PARA COMPRIMIR ARCHIVO
+    // ============================================================
+    private static void comprimirArchivo(String rutaArchivo, LZ77Compressor lz, HuffmanCompressor hf) {
+        final int chunkSizeBytes = 5120 * 5120; // 25MB aprox.
         List<List<String>> bloquesCompresion = new ArrayList<>();
-        String header1 = "";
-        //Paso 1, Crear el lector
-        try(BufferedReader reader = FileManager.crearLectorUTF8(testFilePath)){
-            if(reader == null) return;
-            
+        String headerFinal = "";
+
+        try (BufferedReader reader = FileManager.crearLectorUTF8(rutaArchivo)) {
+            if (reader == null) {
+                System.err.println("No se pudo abrir el archivo.");
+                return;
+            }
+
             char[] buffer = new char[chunkSizeBytes];
             int charsRead;
             int contadorBloques = 0;
-            
-            //Paso 2, leer en un bucle hasta que se acaben los caracteres
-            while((charsRead = reader.read(buffer, 0, chunkSizeBytes)) != -1){
+
+            System.out.println("\n🗜️ Iniciando compresión...");
+            while ((charsRead = reader.read(buffer, 0, chunkSizeBytes)) != -1) {
                 contadorBloques++;
                 String bloque = new String(buffer, 0, charsRead);
-                List<Tupla> tupla = lz.comprimir(bloque,262272 , 4096);
-                System.out.println(tupla);
-                bloquesCompresion.add(hf.comprimir(lz.tuplasAString(tupla)));
-                header1 = hf.getHeader();
-                //System.out.println("-----------------------------------------------------------------------------------------------------------------------------");
-                //System.out.printf("Bloque %d ledio: %d caracteres, Contenido total: %s", contadorBloques, charsRead, bloque);
+
+                // --- LZ77 ---
+                List<Tupla> tuplas = lz.comprimir(bloque, 8192, 64);
+                String tuplasStr = lz.tuplasAString(tuplas);
+
+                // --- Huffman ---
+                List<String> bloqueComprimido = hf.comprimir(tuplasStr);
+                headerFinal = hf.getHeader();
+
+                bloquesCompresion.add(bloqueComprimido);
+                System.out.printf("✅ Bloque %d comprimido (%d caracteres leídos)%n", contadorBloques, charsRead);
             }
-            
-            System.out.println(bloquesCompresion.size());
-            FileManager.writeBinaryFile(bloquesCompresion.get(0), header1, "output.bin");
-        }catch(IOException e){
+
+            // Guardar solo el primer bloque (puedes ampliar a todos si lo deseas)
+            if (!bloquesCompresion.isEmpty()) {
+                FileManager.writeBinaryFile(bloquesCompresion.get(0), headerFinal, "output.bin");
+                System.out.println("\n📦 Archivo comprimido guardado como: output.bin");
+            } else {
+                System.out.println("No se generaron bloques de compresión.");
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // ============================================================
+    // MÉTODO PARA DESCOMPRIMIR ARCHIVO
+    // ============================================================
+    private static void descomprimirArchivo(String archivoComprimido, LZ77Compressor lz, HuffmanCompressor hf) {
+        try {
+            System.out.println("\n🔍 Leyendo archivo comprimido...");
+            FileManager.readBinaryFile(archivoComprimido);
+
+            String header = FileManager.getHeader();
+            String bytesLeidos = FileManager.getBytes();
+
+            System.out.println("🧩 Descomprimiendo Huffman...");
+            String datosDescomprimidos = hf.descomprimir(bytesLeidos, header);
+
+            System.out.println("🧩 Descomprimiendo LZ77...");
+            String resultadoFinal = lz.descomprimir(lz.stringATuplas(datosDescomprimidos));
+            FileManager.writePlainTextFile(resultadoFinal, "descomprimido.txt");
+            System.out.println("\n📜 Resultado de la descompresión:");
+            System.out.println("-------------------------------------------------------------");
+            System.out.println(resultadoFinal.substring(0, Math.min(1000, resultadoFinal.length())) + "...");
+            System.out.println("-------------------------------------------------------------");
+            System.out.println("✅ Descompresión completada con éxito.");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error durante la descompresión:");
             e.printStackTrace();
         }
     }

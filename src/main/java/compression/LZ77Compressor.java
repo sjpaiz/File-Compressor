@@ -1,8 +1,9 @@
+//Implementacion de la interfaz compressor.java usando el algoritmo LZW
 package compression;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LZ77 {
+public class LZ77Compressor {
     public List<Tupla> comprimir(String texto, int tamVentana, int tamBuffer) {
         List<Tupla> comprimido = new ArrayList<>();
 
