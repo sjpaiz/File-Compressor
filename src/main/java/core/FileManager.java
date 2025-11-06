@@ -1,6 +1,8 @@
 package core;
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -9,8 +11,12 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 public class FileManager {
@@ -30,6 +36,14 @@ public class FileManager {
             System.err.println("Error al escribir el archivo .bin: " + e);
         }
     }
+
+    public static void writeCriptedBinaryFile(byte[] data, String filePath) {
+    try (FileOutputStream fos = new FileOutputStream(filePath)) {
+        fos.write(data);
+    } catch (IOException e) {
+        System.err.println("Error al escribir el archivo binario: " + e.getMessage());
+    }
+}
 
     public static void appendBinaryFile(List<String> content, String filePath) {
     try (FileOutputStream fos = new FileOutputStream(filePath, true);
@@ -69,9 +83,58 @@ public class FileManager {
         }
     }
 
-    /**
-     * Lee un archivo de texto plano por bloques de tamaño fijo.
-     */
+
+public static String readBinaryFileToBase64Stream(String filePath) {
+    try (InputStream fis = new BufferedInputStream(new FileInputStream(filePath));
+         ByteArrayOutputStream baos = new ByteArrayOutputStream();
+         OutputStream b64Out = Base64.getEncoder().wrap(baos)) {
+
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = fis.read(buffer)) != -1) {
+            b64Out.write(buffer, 0, read);
+        }
+        b64Out.close();
+        return baos.toString("US-ASCII"); // Base64 es ASCII puro
+    } catch (IOException e) {
+        throw new RuntimeException("Error leyendo archivo binario a Base64: " + e.getMessage(), e);
+    }
+}
+
+
+    public static List<String[]> readBinaryBlocks(String filePath) {
+        List<String[]> bloques = new ArrayList<>();
+
+        try (FileInputStream fis = new FileInputStream(filePath);
+            DataInputStream dis = new DataInputStream(fis)) {
+
+            while (dis.available() > 0) {
+                try {
+                    String header = dis.readUTF();
+                    StringBuilder sb = new StringBuilder();
+
+                    while (true) {
+                        byte b = dis.readByte();
+                        sb.append(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
+                        if (dis.available() == 0) break;
+                    }
+
+                    bloques.add(new String[]{ header, sb.toString() });
+                } catch (EOFException e) {
+                    break;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return bloques;
+    }
+
+
+    
+    // Lee un archivo de texto plano por bloques de tamaño fijo.
+     
     public static String readPlainTextFile(String filePath, int bufferSize) {
         try {
             FileInputStream fis = new FileInputStream(filePath);
@@ -94,9 +157,7 @@ public class FileManager {
         }
     }
 
-    /**
-     * Crea un lector UTF-8 para archivos de texto.
-     */
+    // Lector UTF-8 para archivos de texto plano
     public static BufferedReader crearLectorUTF8(String filePath) {
         try {
             FileInputStream fis = new FileInputStream(filePath);
@@ -108,22 +169,19 @@ public class FileManager {
         }
     }
 
-    /**
-     * Escribe un archivo de texto plano (UTF-8) con el contenido recibido.
-     * Si el archivo ya existe, se sobrescribe.
-     */
+    // Escritor de texto plano con UTF-8 para acentos y ñ
     public static void writePlainTextFile(String content, String filePath) {
         try (FileWriter fw = new FileWriter(filePath, StandardCharsets.UTF_8);
              BufferedWriter writer = new BufferedWriter(fw)) {
 
             writer.write(content);
-            writer.flush(); // Asegura que todo el texto se escriba en disco
+            writer.flush();
 
         } catch (IOException e) {
             System.err.println("Error al escribir el archivo de texto: " + e.getMessage());
         }
     }
-
+    
     public static String getHeader() {
         return headerLeido;
     }

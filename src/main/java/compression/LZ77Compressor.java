@@ -40,13 +40,11 @@ public class LZ77Compressor {
                     mejorOffset = pos - i;
                 }
 
-                // Si ya alcanzamos la longitud máxima, salir
                 if (mejorLongitud == maxLongitudBusqueda) {
                     break;
                 }
             }
 
-            // Determinar el siguiente carácter
             if (pos + mejorLongitud < n) {
                 siguienteChar = chars[pos + mejorLongitud];
             } else {
@@ -63,31 +61,43 @@ public class LZ77Compressor {
     }
 
     
-    public String descomprimir(List<Tupla> comprimido) {
-        StringBuilder resultado = new StringBuilder();
-        
-        if (comprimido == null) {
-            return "";
-        }
-        
-        for (Tupla tupla : comprimido) {
-            if (tupla.longitud > 0) {
-                int inicio = resultado.length() - tupla.offset;
-                // Copiar los caracteres que coinciden
-                for (int i = 0; i < tupla.longitud; i++) {
-                    if (inicio + i < resultado.length()) {
-                        resultado.append(resultado.charAt(inicio + i));
-                    }
-                }
-            }
-            
-            if (tupla.siguiente != '\0') {
-                resultado.append(tupla.siguiente);
-            }
-        }
-        
+public String descomprimir(List<Tupla> comprimido) {
+    return descomprimir(comprimido, "");
+}
+
+public String descomprimir(List<Tupla> comprimido, String contexto) {
+    StringBuilder resultado = new StringBuilder();
+
+    if (contexto != null && !contexto.isEmpty()) {
+        resultado.append(contexto);
+    }
+
+    if (comprimido == null) {
         return resultado.toString();
     }
+
+    for (Tupla tupla : comprimido) {
+        if (tupla.longitud > 0) {
+            int inicio = resultado.length() - tupla.offset;
+
+            if (inicio < 0) {
+                System.err.printf("Error en tupla durante descompresión: %d longitud=%d resultadoLen=%d%n",
+                                  tupla.offset, tupla.longitud, resultado.length());
+                throw new IllegalStateException("Valor inválido durante descompresión LZ77");
+            }
+
+            for (int i = 0; i < tupla.longitud; i++) {
+                resultado.append(resultado.charAt(inicio + i));
+            }
+        }
+
+        if (tupla.siguiente != '\0') {
+            resultado.append(tupla.siguiente);
+        }
+    }
+
+    return resultado.toString();
+}
     
     // Convertir lista de tuplas a string para almacenarlas
     public String tuplasAString(List<Tupla> comprimido) {

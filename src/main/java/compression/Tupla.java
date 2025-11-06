@@ -1,9 +1,9 @@
 package compression;
 
 public class Tupla {
-        int offset;
-        int longitud;
-        char siguiente;
+        public int offset;
+        public int longitud;
+        public char siguiente;
         
         Tupla(int offset, int longitud, char siguiente) {
             this.offset = offset;

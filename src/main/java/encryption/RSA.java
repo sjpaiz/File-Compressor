@@ -1,8 +1,23 @@
 package encryption;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.RandomAccessFile;
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Random;
 
@@ -12,9 +27,7 @@ public class RSA {
     private static final String PRIVATE_KEY_FILE = "rsa_private.key";
     private static final int DEFAULT_KEY_SIZE = 1024; // segura y rápida
 
-    // ==============================
-    // 🔑 Estructuras internas
-    // ==============================
+
     public static class Clave implements Serializable {
         public BigInteger valor;
         public BigInteger n;
@@ -28,9 +41,7 @@ public class RSA {
     private static Clave publicKey;
     private static Clave privateKey;
 
-    // ==============================
-    // 🚀 Inicialización automática
-    // ==============================
+
     static {
         try {
             cargarOGenerarClaves();
@@ -79,10 +90,6 @@ public class RSA {
         }
     }
 
-    // ======================================================
-    // 🔒 ENCRIPTAR Y DESENCRIPTAR STRINGS
-    // ======================================================
-
     public static String encrypt(String texto) {
         return encryptWithKey(texto, publicKey);
     }
@@ -105,72 +112,121 @@ public class RSA {
         return new String(descifrado.toByteArray(), StandardCharsets.UTF_8);
     }
 
-    // ======================================================
-    // 📂 ENCRIPTAR ARCHIVOS Y DEVOLVER COMO STRING
-    // ======================================================
+public static String encryptFileToString(String rutaArchivo) throws IOException {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-    /**
-     * Encripta un archivo completo y devuelve el resultado como un String Base64 listo
-     * para escribir con FileManager.writeBinaryFile().
-     */
-    public static String encryptFileToString(String rutaArchivo) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    try (BufferedInputStream in = new BufferedInputStream(new FileInputStream(rutaArchivo));
+         DataOutputStream out = new DataOutputStream(new BufferedOutputStream(baos))) {
 
-        try (BufferedInputStream in = new BufferedInputStream(new FileInputStream(rutaArchivo));
-             DataOutputStream out = new DataOutputStream(new BufferedOutputStream(baos))) {
+        // Header: longitud original
+        File f = new File(rutaArchivo);
+        long originalLength = f.length();
+        out.writeLong(originalLength);
 
-            int tamBloque = (publicKey.n.bitLength() - 1) / 8;
-            byte[] buffer = new byte[tamBloque];
-            int bytesLeidos;
+        int tamBloqueClaro = (publicKey.n.bitLength() - 1) / 8;
+        int cipherLen = (publicKey.n.bitLength() + 7) / 8;
+        byte[] buffer = new byte[tamBloqueClaro];
+        int bytesLeidos;
+        int bloqueIdx = 0;
 
-            while ((bytesLeidos = in.read(buffer)) != -1) {
-                byte[] bloque = new byte[bytesLeidos];
-                System.arraycopy(buffer, 0, bloque, 0, bytesLeidos);
+        while ((bytesLeidos = in.read(buffer)) != -1) {
+            bloqueIdx++;
+            byte[] plain = Arrays.copyOf(buffer, bytesLeidos);
 
-                BigInteger m = new BigInteger(1, bloque);
-                BigInteger c = m.modPow(publicKey.valor, publicKey.n);
-                byte[] bytesCifrados = c.toByteArray();
+            BigInteger m = new BigInteger(1, plain);
+            BigInteger c = m.modPow(publicKey.valor, publicKey.n);
 
-                out.writeInt(bytesCifrados.length);
-                out.write(bytesCifrados);
-            }
+            byte[] bytesCifrados = toFixedLength(c.toByteArray(), cipherLen);
+
+            out.writeInt(bytesLeidos);
+            out.writeInt(bytesCifrados.length);
+            out.write(bytesCifrados);
+
         }
 
-        // Devuelve todo el archivo cifrado en Base64 (seguro para texto)
-        return Base64.getEncoder().encodeToString(baos.toByteArray());
+        out.flush();
     }
 
-    /**
-     * Desencripta el contenido previamente encriptado por encryptFileToString().
-     */
-    public static void decryptStringToFile(String contenidoEncriptado, String salida) throws IOException {
-        byte[] datosCifrados = Base64.getDecoder().decode(contenidoEncriptado);
+    return Base64.getEncoder().encodeToString(baos.toByteArray());
+}
 
-        try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(datosCifrados));
-             BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(salida))) {
+public static void decryptStringToFile(String contenidoEncriptado, String salida) throws IOException {
+    byte[] datosCifrados = Base64.getDecoder().decode(contenidoEncriptado);
 
-            while (true) {
-                try {
-                    int length = in.readInt();
-                    byte[] bloqueCifrado = new byte[length];
-                    in.readFully(bloqueCifrado);
+    File outFile = new File(salida);
+    try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(datosCifrados));
+         BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outFile))) {
 
-                    BigInteger c = new BigInteger(1, bloqueCifrado);
-                    BigInteger descifrado = c.modPow(privateKey.valor, privateKey.n);
-                    byte[] bytesDescifrados = descifrado.toByteArray();
+        // Leer header (long original)
+        long originalLength;
+        try {
+            originalLength = in.readLong();
+        } catch (EOFException e) {
+            throw new IOException("Archivo cifrado corrupto: falta header de longitud", e);
+        }
 
-                    if (bytesDescifrados.length > 1 && bytesDescifrados[0] == 0) {
-                        byte[] tmp = new byte[bytesDescifrados.length - 1];
-                        System.arraycopy(bytesDescifrados, 1, tmp, 0, tmp.length);
-                        bytesDescifrados = tmp;
-                    }
+        int tamBloqueOriginal = (publicKey.n.bitLength() - 1) / 8;
+        int bloqueIdx = 0;
+        long totalWritten = 0;
 
-                    out.write(bytesDescifrados);
-                } catch (EOFException e) {
-                    break;
+        while (true) {
+            try {
+                int plainLen = in.readInt();
+                int cipherLen = in.readInt();
+                byte[] bloqueCifrado = new byte[cipherLen];
+                in.readFully(bloqueCifrado);
+
+                bloqueIdx++;
+
+                BigInteger c = new BigInteger(1, bloqueCifrado);
+                BigInteger m = c.modPow(privateKey.valor, privateKey.n);
+                byte[] rawDesc = m.toByteArray();
+
+                byte[] fixedDesc = rawDesc;
+                if (rawDesc.length > tamBloqueOriginal) {
+                    fixedDesc = Arrays.copyOfRange(rawDesc, rawDesc.length - tamBloqueOriginal, rawDesc.length);
+                } else if (rawDesc.length < tamBloqueOriginal) {
+                    // rellenar a la izquierda con ceros para tener tamBloqueOriginal bytes
+                    byte[] padded = new byte[tamBloqueOriginal];
+                    System.arraycopy(rawDesc, 0, padded, tamBloqueOriginal - rawDesc.length, rawDesc.length);
+                    fixedDesc = padded;
                 }
+
+                int start = tamBloqueOriginal - plainLen;
+                if (start < 0 || plainLen < 0 || plainLen > tamBloqueOriginal) {
+                    throw new IOException("Inconsistencia de longitudes en bloque descifrado: plainLen=" + plainLen + " tamBloque=" + tamBloqueOriginal);
+                }
+
+                out.write(fixedDesc, start, plainLen);
+                totalWritten += plainLen;
+            } catch (EOFException e) {
+                break;
             }
         }
+
+        out.flush();
     }
+
+    try (RandomAccessFile raf = new RandomAccessFile(outFile, "rw")) {
+        byte[] decoded = Base64.getDecoder().decode(contenidoEncriptado);
+        DataInputStream dis = new DataInputStream(new ByteArrayInputStream(decoded));
+        long originalLength = dis.readLong();
+        long currentLength = raf.length();
+        if (originalLength < currentLength) {
+            raf.setLength(originalLength);
+        }
+    }
+}
+
+private static byte[] toFixedLength(byte[] input, int length) {
+    if (input.length == length) return input;
+    byte[] result = new byte[length];
+    if (input.length > length) {
+        System.arraycopy(input, input.length - length, result, 0, length);
+    } else {
+        System.arraycopy(input, 0, result, length - input.length, input.length);
+    }
+    return result;
+}
 
 }

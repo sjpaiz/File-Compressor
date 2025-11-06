@@ -31,6 +31,8 @@ build/
 *.bak
 *.txt
 *.bin
+*.comp
+*.comp.enc
 
 # Archivos generados por el sistema
 .DS_Store

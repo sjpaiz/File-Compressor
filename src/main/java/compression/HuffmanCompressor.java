@@ -138,7 +138,6 @@ public class HuffmanCompressor {
         generarCodigos(nodo.derecha, codigo + "1");
     }
     
-// Versión CORREGIDA para List<String>
 private List<String> codificarTexto(String texto) {
     List<String> codificados = new ArrayList<>();
     StringBuilder bitStream = new StringBuilder();
@@ -164,7 +163,6 @@ private List<String> codificarTexto(String texto) {
         bitsDeRelleno = 0;
     }
     
-    // 3. Dividir el flujo total (ya rellenado) en bloques de 8 bits
     String streamRellenado = bitStream.toString();
     for (int i = 0; i < streamRellenado.length(); i += 8) {
         // Garantizamos que cada String tenga exactamente 8 caracteres

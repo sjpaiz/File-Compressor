@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,7 +8,6 @@ import java.util.Scanner;
 import compression.HuffmanCompressor;
 import compression.LZ77Compressor;
 import compression.Tupla;
-import encryption.RSA;
 import core.FileManager;
 
 public class Main {
@@ -41,11 +41,8 @@ public class Main {
         sc.close();
     }
 
-    // ============================================================
-    // MÉTODO PARA COMPRIMIR ARCHIVO
-    // ============================================================
     private static void comprimirArchivo(String rutaArchivo, LZ77Compressor lz, HuffmanCompressor hf) {
-        final int chunkSizeBytes = 5120 * 5120; // 25MB aprox.
+        final int chunkSizeBytes = 10240 * 10240;
         List<List<String>> bloquesCompresion = new ArrayList<>();
         String headerFinal = "";
 
@@ -59,27 +56,30 @@ public class Main {
             int charsRead;
             int contadorBloques = 0;
 
-            System.out.println("\n🗜️ Iniciando compresión...");
+            System.out.println("\nIniciando compresión...");
             while ((charsRead = reader.read(buffer, 0, chunkSizeBytes)) != -1) {
                 contadorBloques++;
                 String bloque = new String(buffer, 0, charsRead);
 
-                // --- LZ77 ---
-                List<Tupla> tuplas = lz.comprimir(bloque, 8192, 64);
+                // LZ77
+                List<Tupla> tuplas = lz.comprimir(bloque, 16384, 1024);
                 String tuplasStr = lz.tuplasAString(tuplas);
 
-                // --- Huffman ---
+                // HUFFMAN
                 List<String> bloqueComprimido = hf.comprimir(tuplasStr);
                 headerFinal = hf.getHeader();
 
                 bloquesCompresion.add(bloqueComprimido);
-                System.out.printf("✅ Bloque %d comprimido (%d caracteres leídos)%n", contadorBloques, charsRead);
+                System.out.printf("Bloque %d comprimido (%d caracteres leídos)%n", contadorBloques, charsRead);
             }
 
-            // Guardar solo el primer bloque (puedes ampliar a todos si lo deseas)
             if (!bloquesCompresion.isEmpty()) {
-                FileManager.writeBinaryFile(bloquesCompresion.get(0), headerFinal, "output.bin");
-                System.out.println("\n📦 Archivo comprimido guardado como: output.bin");
+                for (int i = 0; i < bloquesCompresion.size(); i++) {
+                    String nombreArchivo = rutaArchivo + (i + 1) + ".comp";
+                    FileManager.writeBinaryFile(bloquesCompresion.get(i), headerFinal, nombreArchivo);
+                    System.out.printf("Bloque %d guardado como %s%n", i + 1, nombreArchivo);
+                }
+                System.out.println("\nArchivo comprimido guardado como: output.bin");
             } else {
                 System.out.println("No se generaron bloques de compresión.");
             }
@@ -89,32 +89,51 @@ public class Main {
         }
     }
 
-    // ============================================================
-    // MÉTODO PARA DESCOMPRIMIR ARCHIVO
-    // ============================================================
-    private static void descomprimirArchivo(String archivoComprimido, LZ77Compressor lz, HuffmanCompressor hf) {
-        try {
-            System.out.println("\n🔍 Leyendo archivo comprimido...");
-            FileManager.readBinaryFile(archivoComprimido);
 
-            String header = FileManager.getHeader();
-            String bytesLeidos = FileManager.getBytes();
+private static void descomprimirArchivo(String archivoComprimido, LZ77Compressor lz, HuffmanCompressor hf) {
+    System.out.println("\nDescomprimiendo todos los bloques...");
+    StringBuilder resultadoFinal = new StringBuilder();
 
-            System.out.println("🧩 Descomprimiendo Huffman...");
-            String datosDescomprimidos = hf.descomprimir(bytesLeidos, header);
+    final int tamVentana = 16384; // debe coincidir con el usado en compresión
 
-            System.out.println("🧩 Descomprimiendo LZ77...");
-            String resultadoFinal = lz.descomprimir(lz.stringATuplas(datosDescomprimidos));
-            FileManager.writePlainTextFile(resultadoFinal, "descomprimido.txt");
-            System.out.println("\n📜 Resultado de la descompresión:");
-            System.out.println("-------------------------------------------------------------");
-            System.out.println(resultadoFinal.substring(0, Math.min(1000, resultadoFinal.length())) + "...");
-            System.out.println("-------------------------------------------------------------");
-            System.out.println("✅ Descompresión completada con éxito.");
+    int bloque = 1;
+    while (bloque < 2) {
+        String nombreArchivo = archivoComprimido;
+        File archivo = new File(nombreArchivo);
+        if (!archivo.exists()) break;
 
-        } catch (Exception e) {
-            System.err.println("❌ Error durante la descompresión:");
-            e.printStackTrace();
+        FileManager.readBinaryFile(nombreArchivo);
+        String header = FileManager.getHeader();
+        String bytesLeidos = FileManager.getBytes();
+
+        String datosDescomprimidos = hf.descomprimir(bytesLeidos, header);
+        // Convertir string a lista de tuplas
+        List<Tupla> tuplas = lz.stringATuplas(datosDescomprimidos);
+
+        String contexto = "";
+        if (resultadoFinal.length() > 0) {
+            int start = Math.max(0, resultadoFinal.length() - tamVentana);
+            contexto = resultadoFinal.substring(start);
         }
+
+        String bloqueConContexto = lz.descomprimir(tuplas, contexto);
+
+
+        String parteNueva;
+        if (contexto.isEmpty()) {
+            parteNueva = bloqueConContexto; // primer bloque
+        } else {
+            parteNueva = bloqueConContexto.substring(contexto.length());
+        }
+
+        resultadoFinal.append(parteNueva);
+
+        System.out.printf("Bloque %d descomprimido correctamente (añadidos %d caracteres)%n", bloque, parteNueva.length());
+        bloque++;
     }
+
+    FileManager.writePlainTextFile(resultadoFinal.toString(), "descomprimido.txt");
+    System.out.println("\nDescompresión completa. Archivo final: descomprimido.txt");
+}
+
 }
