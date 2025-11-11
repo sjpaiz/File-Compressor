@@ -9,8 +9,17 @@
   <div class="container">
     <h1>File-Compressor-Express</h1>
     <p>Bienvenido, selecciona un archivo para procesar.</p>
-    <input type="file" id="fileInput">
-    <button id="uploadBtn">Procesar archivo</button>
+
+<input type="file" id="fileInput" name="file" multiple webkitdirectory>
+    
+    <div class="actions">
+      <button id="encryptButton">Encriptar el archivo o carpeta</button>
+      <button id="deEncryptButton">Desencriptar el archivo o carpeta</button>
+      <button id="compressButton">Comprimir el archivo o carpeta</button>
+      <button id="deCompressButton">Descomprimir el archivo o carpeta</button>
+      <button id="compressEncryptButton">Comprimir y encriptar el archivo o carpeta</button>
+    </div>
+
     <p id="status"></p>
   </div>
 

@@ -10,7 +10,17 @@ public class Tupla {
             this.longitud = longitud;
             this.siguiente = siguiente;
         }
-        
+        public int getOffset() {
+        return offset;
+    }
+
+    public int getLength() {
+        return longitud;
+    }
+
+    public char getNextChar() {
+        return siguiente;
+    }
         @Override
         public String toString() {
             return "(" + offset + "," + longitud + "," + siguiente + ")";
