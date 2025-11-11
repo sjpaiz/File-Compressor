@@ -8,16 +8,26 @@
 <body>
   <div class="container">
     <h1>File-Compressor-Express</h1>
-    <p>Bienvenido, selecciona un archivo para procesar.</p>
+    <p>Bienvenido, selecciona un archivo o carpeta para procesar.</p>
 
-<input type="file" id="fileInput" name="file" multiple webkitdirectory>
-    
+    <!-- 🔹 Subida de ARCHIVOS individuales -->
+    <div class="upload-section">
+      <h3>Subir archivos individuales</h3>
+      <input type="file" id="fileInputFiles" name="files" multiple>
+    </div>
+
+    <!-- 🔹 Subida de CARPETAS completas -->
+    <div class="upload-section">
+      <h3>Subir carpeta completa</h3>
+      <input type="file" id="fileInputFolder" name="folder" webkitdirectory directory multiple>
+    </div>
+
     <div class="actions">
-      <button id="encryptButton">Encriptar el archivo o carpeta</button>
-      <button id="deEncryptButton">Desencriptar el archivo o carpeta</button>
-      <button id="compressButton">Comprimir el archivo o carpeta</button>
-      <button id="deCompressButton">Descomprimir el archivo o carpeta</button>
-      <button id="compressEncryptButton">Comprimir y encriptar el archivo o carpeta</button>
+      <button id="encryptButton">Encriptar</button>
+      <button id="deEncryptButton">Desencriptar</button>
+      <button id="compressButton">Comprimir</button>
+      <button id="deCompressButton">Descomprimir</button>
+      <button id="compressEncryptionButton">Comprimir + Encriptar</button>
     </div>
 
     <p id="status"></p>

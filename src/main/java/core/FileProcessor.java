@@ -47,17 +47,17 @@ public class FileProcessor {
 
                 bloquesCompresion.add(bloqueComprimido);
                 System.out.printf("Bloque %d comprimido (%d caracteres leídos)%n", contadorBloques, charsRead);
+                if (!bloquesCompresion.isEmpty()) {
+                    String nombreBase = new File(rutaArchivo).getName().replaceAll("\\.[^.]*$", ""); // sin extensión
+                    for (int i = 0; i < bloquesCompresion.size(); i++) {
+                        String nombreArchivo = carpetaSalida + "\\" + nombreBase + "_bloque" + (i + 1) + ".comp";
+                        FileManager.writeBinaryFile(bloquesCompresion.get(i), headerFinal, nombreArchivo);
+                        System.out.printf("Bloque %d guardado como %s%n", i + 1, nombreArchivo);
+                    }
+    
+                } else {
+                    System.out.println("No se generaron bloques de compresión.");
             }
-
-            if (!bloquesCompresion.isEmpty()) {
-                String nombreBase = new File(rutaArchivo).getName().replaceAll("\\.[^.]*$", ""); // sin extensión
-                for (int i = 0; i < bloquesCompresion.size(); i++) {
-                    String nombreArchivo = carpetaSalida + "\\" + nombreBase + "_bloque" + (i + 1) + ".comp";
-                    FileManager.writeBinaryFile(bloquesCompresion.get(i), headerFinal, nombreArchivo);
-                    System.out.printf("Bloque %d guardado como %s%n", i + 1, nombreArchivo);
-                }
-            } else {
-                System.out.println("No se generaron bloques de compresión.");
             }
 
         } catch (IOException e) {
@@ -69,7 +69,7 @@ public class FileProcessor {
     public static void descomprimirArchivo(String archivoComprimido, LZ77Compressor lz, HuffmanCompressor hf) {
         System.out.println("\nDescomprimiendo todos los bloques...");
         StringBuilder resultadoFinal = new StringBuilder();
-        final int tamVentana = 16384;
+        final int tamVentana = 8192;
         int bloque = 1;
 
         while (bloque < 2) {

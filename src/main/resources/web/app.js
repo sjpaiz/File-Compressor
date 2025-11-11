@@ -1,5 +1,7 @@
 async function procesarArchivo(action) {
-  const fileInput = document.getElementById("fileInput");
+  const fileInput = document.getElementById("fileInputFiles").files.length
+    ? document.getElementById("fileInputFiles")
+    : document.getElementById("fileInputFolder");
   const status = document.getElementById("status");
 
   if (!fileInput.files.length) {

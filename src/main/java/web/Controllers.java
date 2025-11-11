@@ -18,6 +18,7 @@ public class Controllers {
 
     public static Object handleFileUpload(Request req, Response res) {
         System.out.println("Inicio de carga...");
+
         try {
             req.attribute("org.eclipse.jetty.multipartConfig", new MultipartConfigElement("/tmp"));
             Collection<Part> parts = req.raw().getParts();
@@ -30,76 +31,48 @@ public class Controllers {
             String action = req.queryParams("action");
             if (action == null || action.isEmpty()) action = "compress";
 
-            // === CASO 1: múltiples archivos (carpeta) ===
-            if (parts.size() > 1) {
-                System.out.println("Procesando carpeta con varios archivos...");
-                Path tempFolder = Files.createTempDirectory("inputFolder_");
-                Path outputFolder = Files.createTempDirectory("outputFolder_");
+            // Carpetas de trabajo
+            Path outputFolder = Paths.get("C:\\Comprimidos");
+            if (!Files.exists(outputFolder)) Files.createDirectories(outputFolder);
 
-                LZ77Compressor lz = new LZ77Compressor();
-                HuffmanCompressor hf = new HuffmanCompressor();
+            // Detectar si hay más de un archivo (carpeta)
+            boolean esCarpeta = parts.size() > 1;
+            System.out.println(esCarpeta ? "Procesando CARPETA con varios archivos..." : "Procesando ARCHIVO único...");
 
-                int count = 0;
-                for (Part part : parts) {
-                    String submitted = part.getSubmittedFileName();
-                    if (submitted == null || submitted.isBlank()) continue;
+            LZ77Compressor lz = new LZ77Compressor();
+            HuffmanCompressor hf = new HuffmanCompressor();
+            int procesados = 0;
 
-                    String cleanName = Paths.get(submitted).getFileName().toString();
-                    if (!cleanName.endsWith(".txt")) {
-                        System.out.println("Ignorado: " + cleanName);
-                        continue;
-                    }
+            for (Part part : parts) {
+                String submitted = part.getSubmittedFileName();
+                if (submitted == null || submitted.isBlank()) continue;
 
-                    Path inputFile = tempFolder.resolve(cleanName);
-                    try (InputStream in = part.getInputStream()) {
-                        Files.copy(in, inputFile, StandardCopyOption.REPLACE_EXISTING);
-                    }
+                String cleanName = Paths.get(submitted).getFileName().toString();
+                Path tempInput = Files.createTempFile("input_", "_" + cleanName);
 
-                    System.out.println("Comprimiendo: " + cleanName);
-                    try {
-                        FileProcessor.comprimirArchivo(inputFile.toString(), lz, hf);
-                        Path compressed = Paths.get(inputFile.toString() + ".comp");
-                        if (Files.exists(compressed)) {
-                            Files.move(compressed, outputFolder.resolve(compressed.getFileName()), StandardCopyOption.REPLACE_EXISTING);
-                            count++;
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        System.err.println("Error al comprimir " + cleanName + ": " + e.getMessage());
-                    }
+                try (InputStream in = part.getInputStream()) {
+                    Files.copy(in, tempInput, StandardCopyOption.REPLACE_EXISTING);
                 }
 
-                if (count == 0) {
-                    res.status(400);
-                    return "No se comprimió ningún archivo válido.";
-                }
-
-                System.out.println("Archivos comprimidos correctamente en: " + outputFolder.toAbsolutePath());
-                res.status(200);
-                res.type("text/plain");
-                return "Archivos comprimidos disponibles en: " + outputFolder.toAbsolutePath().toString();
+                System.out.println("Procesando: " + cleanName + " (" + action + ")");
+                processFile(tempInput.toString(), action);
+                procesados++;
             }
 
-            // === CASO 2: archivo único ===
-            Part singlePart = parts.iterator().next();
-            String fileName = singlePart.getSubmittedFileName();
-
-            if (fileName == null || fileName.isBlank()) {
+            if (procesados == 0) {
                 res.status(400);
-                return "El archivo no tiene nombre válido.";
+                return "No se procesó ningún archivo válido.";
             }
 
-            Path inputFile = Files.createTempFile("upload_", "_" + fileName);
-            try (InputStream in = singlePart.getInputStream()) {
-                Files.copy(in, inputFile, StandardCopyOption.REPLACE_EXISTING);
-            }
+            // ✅ Mostrar mensaje claro en lugar de intentar descargar algo
+            String mensaje = esCarpeta
+                    ? "✅ Carpeta comprimida correctamente. Archivos disponibles en: " + outputFolder.toAbsolutePath()
+                    : "✅ Archivo comprimido correctamente. Guardado en: " + outputFolder.toAbsolutePath();
 
-            System.out.println("Archivo recibido: " + fileName + " → acción: " + action);
-            String processed = processFile(inputFile.toString(), action);
-
-            res.header("Content-Disposition", "attachment; filename=" + Paths.get(processed).getFileName());
-            res.type("application/octet-stream");
-            return new BufferedInputStream(Files.newInputStream(Paths.get(processed)));
+            System.out.println(mensaje);
+            res.status(200);
+            res.type("text/plain");
+            return mensaje;
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -108,12 +81,7 @@ public class Controllers {
         }
     }
 
-    private static String detectAction(String name) {
-        if (name.endsWith(".comp")) return "decompress";
-        if (name.endsWith(".enc")) return "decrypt";
-        return "compress";
-    }
-
+    // === Procesamiento según acción ===
     private static String processFile(String name, String action) throws Exception {
         LZ77Compressor lz = new LZ77Compressor();
         HuffmanCompressor hf = new HuffmanCompressor();
